@@ -1,4 +1,10 @@
 node_modules/
 build/
+public/
 data/*
 !data/**/*.json
+sessions/
+.env
+src/config/.env
+client/dist/
+client/tsconfig.tsbuildinfo

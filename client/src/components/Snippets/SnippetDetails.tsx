@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { SnippetsContext } from '../../store';
 import { Snippet } from '../../typescript/interfaces';
 import { dateParser } from '../../utils';
@@ -24,16 +24,11 @@ export const SnippetDetails = (props: Props): JSX.Element => {
     isPinned
   } = props.snippet;
 
-  const history = useHistory();
-
+  const navigate = useNavigate();
   const { deleteSnippet, setSnippet } = useContext(SnippetsContext);
 
   const creationDate = dateParser(createdAt);
   const updateDate = dateParser(updatedAt);
-
-  // const copyHandler = () => {
-  //   copy(code);
-  // };
 
   return (
     <Card>
@@ -43,26 +38,22 @@ export const SnippetDetails = (props: Props): JSX.Element => {
       </h5>
       <p>{description}</p>
 
-      {/* LANGUAGE */}
-      <div className={`d-flex justify-content-between`}>
+      <div className='d-flex justify-content-between'>
         <span>Language</span>
         <span className='fw-bold'>{language}</span>
       </div>
 
-      {/* CREATED AT */}
-      <div className={`d-flex justify-content-between`}>
+      <div className='d-flex justify-content-between'>
         <span>Created</span>
         <span>{creationDate.relative}</span>
       </div>
 
-      {/* UPDATED AT */}
-      <div className={`d-flex justify-content-between`}>
+      <div className='d-flex justify-content-between'>
         <span>Last updated</span>
         <span>{updateDate.relative}</span>
       </div>
       <hr />
 
-      {/* TAGS */}
       <div>
         {tags.map((tag, idx) => (
           <span className='me-2' key={idx}>
@@ -72,7 +63,6 @@ export const SnippetDetails = (props: Props): JSX.Element => {
       </div>
       <hr />
 
-      {/* ACTIONS */}
       <div className='d-grid g-2' style={{ rowGap: '10px' }}>
         <Button
           text='Delete'
@@ -89,8 +79,7 @@ export const SnippetDetails = (props: Props): JSX.Element => {
           outline
           handler={() => {
             setSnippet(id);
-            history.push({
-              pathname: `/editor/${id}`,
+            navigate(`/editor/${id}`, {
               state: { from: window.location.pathname }
             });
           }}

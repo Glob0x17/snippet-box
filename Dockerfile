@@ -1,29 +1,37 @@
-FROM node:14-alpine
+### Stage 1 — build client + server bundle
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
+COPY client/package.json client/package-lock.json ./client/
 
-RUN npm install
+RUN npm ci && npm ci --prefix client
 
-COPY . .
+COPY tsconfig.json nodemon.json ./
+COPY src ./src
+COPY client ./client
 
-# Install client dependencies
-RUN mkdir -p ./public ./data \
-    && cd client \
-    && npm install \
-    && npm rebuild node-sass
+RUN npm run build
 
-# Build 
-RUN npm run build \
-    && mv ./client/build/* ./public
+### Stage 2 — runtime
+FROM node:22-alpine AS runner
 
-# Clean up src files
-RUN rm -rf src/ ./client \
-    && npm prune --production
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/public ./public
+
+RUN mkdir -p ./data ./sessions
 
 EXPOSE 5000
 
-ENV NODE_ENV=production
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:5000/auth/me || exit 0
 
 CMD ["node", "build/server.js"]

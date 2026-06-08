@@ -1,2 +1,12 @@
 node_modules/
+client/node_modules/
 build/
+public/
+client/dist/
+client/build/
+/data/
+/sessions/
+.git/
+.env
+.env.*
+!.env.example

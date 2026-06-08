@@ -1,6 +1,6 @@
-import { useState, createContext } from 'react';
-import { useHistory } from 'react-router-dom';
-import axios from 'axios';
+import { useState, createContext, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api, isUnauthorized, redirectToLogin } from '../utils/api';
 import {
   Context,
   Snippet,
@@ -10,50 +10,52 @@ import {
   SearchQuery
 } from '../typescript/interfaces';
 
+const noop = () => {};
+
 export const SnippetsContext = createContext<Context>({
   snippets: [],
   searchResults: [],
   currentSnippet: null,
   tagCount: [],
-  getSnippets: () => {},
-  getSnippetById: (id: number) => {},
-  setSnippet: (id: number) => {},
-  createSnippet: (snippet: NewSnippet) => {},
-  updateSnippet: (snippet: NewSnippet, id: number, isLocal?: boolean) => {},
-  deleteSnippet: (id: number) => {},
-  toggleSnippetPin: (id: number) => {},
-  countTags: () => {},
-  searchSnippets: (query: SearchQuery) => {}
+  getSnippets: noop,
+  getSnippetById: noop,
+  setSnippet: noop,
+  createSnippet: noop,
+  updateSnippet: noop,
+  deleteSnippet: noop,
+  toggleSnippetPin: noop,
+  countTags: noop,
+  searchSnippets: noop
 });
 
-interface Props {
-  children: JSX.Element | JSX.Element[];
-}
-
-export const SnippetsContextProvider = (props: Props): JSX.Element => {
+export const SnippetsContextProvider = ({ children }: { children: ReactNode }) => {
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [searchResults, setSearchResults] = useState<Snippet[]>([]);
   const [currentSnippet, setCurrentSnippet] = useState<Snippet | null>(null);
   const [tagCount, setTagCount] = useState<TagCount[]>([]);
 
-  const history = useHistory();
+  const navigate = useNavigate();
 
-  const redirectOnError = () => {
-    history.push('/');
+  const handleError = (err: unknown) => {
+    if (isUnauthorized(err)) {
+      redirectToLogin();
+      return;
+    }
+    navigate('/');
   };
 
   const getSnippets = (): void => {
-    axios
+    api
       .get<Response<Snippet[]>>('/api/snippets')
       .then(res => setSnippets(res.data.data))
-      .catch(err => redirectOnError());
+      .catch(handleError);
   };
 
   const getSnippetById = (id: number): void => {
-    axios
+    api
       .get<Response<Snippet>>(`/api/snippets/${id}`)
       .then(res => setCurrentSnippet(res.data.data))
-      .catch(err => redirectOnError());
+      .catch(handleError);
   };
 
   const setSnippet = (id: number): void => {
@@ -61,28 +63,22 @@ export const SnippetsContextProvider = (props: Props): JSX.Element => {
       setCurrentSnippet(null);
       return;
     }
-
     getSnippetById(id);
-
     const snippet = snippets.find(s => s.id === id);
-
-    if (snippet) {
-      setCurrentSnippet(snippet);
-    }
+    if (snippet) setCurrentSnippet(snippet);
   };
 
   const createSnippet = (snippet: NewSnippet): void => {
-    axios
+    api
       .post<Response<Snippet>>('/api/snippets', snippet)
       .then(res => {
         setSnippets([...snippets, res.data.data]);
         setCurrentSnippet(res.data.data);
-        history.push({
-          pathname: `/snippet/${res.data.data.id}`,
+        navigate(`/snippet/${res.data.data.id}`, {
           state: { from: '/snippets' }
         });
       })
-      .catch(err => redirectOnError());
+      .catch(handleError);
   };
 
   const updateSnippet = (
@@ -90,88 +86,80 @@ export const SnippetsContextProvider = (props: Props): JSX.Element => {
     id: number,
     isLocal?: boolean
   ): void => {
-    axios
+    api
       .put<Response<Snippet>>(`/api/snippets/${id}`, snippet)
       .then(res => {
-        const oldSnippetIdx = snippets.findIndex(s => s.id === id);
+        const idx = snippets.findIndex(s => s.id === id);
         setSnippets([
-          ...snippets.slice(0, oldSnippetIdx),
+          ...snippets.slice(0, idx),
           res.data.data,
-          ...snippets.slice(oldSnippetIdx + 1)
+          ...snippets.slice(idx + 1)
         ]);
         setCurrentSnippet(res.data.data);
-
         if (!isLocal) {
-          history.push({
-            pathname: `/snippet/${res.data.data.id}`,
+          navigate(`/snippet/${res.data.data.id}`, {
             state: { from: '/snippets' }
           });
         }
       })
-      .catch(err => redirectOnError());
+      .catch(handleError);
   };
 
   const deleteSnippet = (id: number): void => {
-    if (window.confirm('Are you sure you want to delete this snippet?')) {
-      axios
-        .delete<Response<{}>>(`/api/snippets/${id}`)
-        .then(res => {
-          const deletedSnippetIdx = snippets.findIndex(s => s.id === id);
-          setSnippets([
-            ...snippets.slice(0, deletedSnippetIdx),
-            ...snippets.slice(deletedSnippetIdx + 1)
-          ]);
-          setSnippet(-1);
-          history.push('/snippets');
-        })
-        .catch(err => redirectOnError());
-    }
+    if (!window.confirm('Are you sure you want to delete this snippet?')) return;
+    api
+      .delete<Response<unknown>>(`/api/snippets/${id}`)
+      .then(() => {
+        const idx = snippets.findIndex(s => s.id === id);
+        setSnippets([...snippets.slice(0, idx), ...snippets.slice(idx + 1)]);
+        setSnippet(-1);
+        navigate('/snippets');
+      })
+      .catch(handleError);
   };
 
   const toggleSnippetPin = (id: number): void => {
     const snippet = snippets.find(s => s.id === id);
-
     if (snippet) {
       updateSnippet({ ...snippet, isPinned: !snippet.isPinned }, id, true);
     }
   };
 
   const countTags = (): void => {
-    axios
+    api
       .get<Response<TagCount[]>>('/api/snippets/statistics/count')
       .then(res => setTagCount(res.data.data))
-      .catch(err => redirectOnError());
+      .catch(handleError);
   };
 
   const searchSnippets = (query: SearchQuery): void => {
-    axios
+    api
       .post<Response<Snippet[]>>('/api/snippets/search', query)
-      .then(res => {
-        setSearchResults(res.data.data);
-        console.log(res.data.data);
-      })
-      .catch(err => console.log(err));
-  };
-
-  const context = {
-    snippets,
-    searchResults,
-    currentSnippet,
-    tagCount,
-    getSnippets,
-    getSnippetById,
-    setSnippet,
-    createSnippet,
-    updateSnippet,
-    deleteSnippet,
-    toggleSnippetPin,
-    countTags,
-    searchSnippets
+      .then(res => setSearchResults(res.data.data))
+      .catch(err => {
+        if (isUnauthorized(err)) redirectToLogin();
+      });
   };
 
   return (
-    <SnippetsContext.Provider value={context}>
-      {props.children}
+    <SnippetsContext.Provider
+      value={{
+        snippets,
+        searchResults,
+        currentSnippet,
+        tagCount,
+        getSnippets,
+        getSnippetById,
+        setSnippet,
+        createSnippet,
+        updateSnippet,
+        deleteSnippet,
+        toggleSnippetPin,
+        countTags,
+        searchSnippets
+      }}
+    >
+      {children}
     </SnippetsContext.Provider>
   );
 };

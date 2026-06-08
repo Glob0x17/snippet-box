@@ -1,7 +1,9 @@
-import { DataTypes, QueryInterface } from 'sequelize';
+import { DataTypes } from 'sequelize';
+import type { Migration } from '../index';
+
 const { INTEGER } = DataTypes;
 
-export const up = async (queryInterface: QueryInterface): Promise<void> => {
+export const up: Migration = async ({ context: queryInterface }) => {
   await queryInterface.addColumn('snippets', 'isPinned', {
     type: INTEGER,
     allowNull: true,
@@ -9,6 +11,6 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
   });
 };
 
-export const down = async (queryInterface: QueryInterface): Promise<void> => {
+export const down: Migration = async ({ context: queryInterface }) => {
   await queryInterface.removeColumn('snippets', 'isPinned');
 };

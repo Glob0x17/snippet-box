@@ -1,10 +1,23 @@
-version: '3'
 services:
   snippet-box:
-    image: pawelmalak/snippet-box
+    build: .
+    image: snippet-box:2.0.0
     container_name: snippet-box
-    volumes:
-      - /path/to/host/data:/app/data
+    restart: unless-stopped
     ports:
       - 5000:5000
-    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./sessions:/app/sessions
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?set OIDC_ISSUER_URL in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID in .env}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?set OIDC_REDIRECT_URI in .env}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
+      OIDC_ALLOWED_EMAILS: ${OIDC_ALLOWED_EMAILS:-}
+      OIDC_POST_LOGOUT_REDIRECT_URI: ${OIDC_POST_LOGOUT_REDIRECT_URI:-}

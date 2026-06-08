@@ -1,117 +1,99 @@
 # Snippet Box
 
-![Snippet library screenshot](./.github/img/snippets.png)
+Self-hosted app for organizing your code snippets, with OIDC authentication.
 
-## Description
+This is a fork of [pawelmalak/snippet-box](https://github.com/pawelmalak/snippet-box) modernized for 2026:
 
-Snippet Box is a simple self-hosted app for organizing your code snippets. It allows you to easily create, edit, browse and manage your snippets in various languages. With built-in Markdown support, Snippet Box makes it very easy to add notes or simple documentation to your code.
+- **Backend**: Node 22 · Express 5 · TypeScript 5 · Sequelize 6 · openid-client v6
+- **Frontend**: Vite 6 · React 19 · React Router 7 · Bootstrap 5 · Dart Sass
+- **Auth**: OIDC (any standards-compliant IdP — PocketID, Authelia, Keycloak, Authentik, Zitadel, Dex…)
 
-## Technology
+## Configuration
 
-- Backend
-  - Node.js
-  - Typescript
-  - Express.js
-  - Sequelize ORM + SQLite
-- Frontend
-  - React
-  - TypeScript
-  - Bootstrap
-- Deployment
-  - Docker
-
-## Development
+Copy `.env.example` to `.env` and fill in the values:
 
 ```sh
-# clone repository
-git clone https://github.com/pawelmalak/snippet-box
-cd snippet-box
-
-# install dependencies (run only once)
-npm run init
-
-# start backend and frontend development servers
-npm run dev
+cp .env.example .env
+# generate a strong session secret
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Installation
+Required variables:
 
-### With Docker
+| Variable | Description |
+| --- | --- |
+| `SESSION_SECRET` | Random string used to sign session cookies. |
+| `OIDC_ISSUER_URL` | IdP issuer (e.g. `https://auth.example.com`). |
+| `OIDC_CLIENT_ID` | Client ID registered in your IdP. |
+| `OIDC_CLIENT_SECRET` | Client secret (optional if your IdP allows public PKCE clients). |
+| `OIDC_REDIRECT_URI` | Must exactly match the redirect URI registered in your IdP, e.g. `https://snippets.example.com/auth/callback`. |
 
-#### Docker Hub
+Optional:
 
-[Docker Hub image link](https://hub.docker.com/r/pawelmalak/snippet-box).
-For arm platforms use `:arm` tag.
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `5000` | HTTP port. |
+| `TRUST_PROXY` | `0` | Set to `1` behind an HTTPS reverse proxy (enables secure cookies). |
+| `OIDC_SCOPES` | `openid profile email` | OIDC scopes to request. |
+| `OIDC_ALLOWED_EMAILS` | _empty_ | Comma-separated allow-list. Empty = anyone the IdP authenticates. |
+| `OIDC_POST_LOGOUT_REDIRECT_URI` | `/` | Where to send users after logout. |
 
-#### Building image
+### IdP setup
+
+Register a new OIDC client in your provider with:
+
+- **Redirect URI**: `https://snippets.example.com/auth/callback` (and `http://localhost:5000/auth/callback` for local dev)
+- **Scopes**: `openid`, `profile`, `email`
+- **PKCE**: enabled (S256)
+- **Grant type**: Authorization Code
+
+## Run with Docker
 
 ```sh
-# Building image for Linux
-docker build -t snippet-box .
-
-# Build image for ARM
-docker buildx build \
-  --platform linux/arm/v7,linux/arm64 \
-  -f Dockerfile.arm \
-  -t snippet-box:arm .
+docker compose up -d --build
 ```
 
-#### Deployment
+`./data` (SQLite database) and `./sessions` (file-based session store) are persisted as bind mounts.
+
+## Run locally (development)
+
+Requires Node 20+.
 
 ```sh
-# run container
-# for ARM use snippet-box:arm tag
-docker run -p 5000:5000 -v /path/to/data:/app/data snippet-box
+npm run init           # installs root + client deps
+cp .env.example .env   # fill in OIDC values
+npm run dev            # backend on :5000, Vite on :5173 with proxy
 ```
 
-#### Docker Compose
+The Vite dev server proxies `/api/*` and `/auth/*` to the backend on `:5000`, so just visit `http://localhost:5173`.
 
-```yaml
-version: '3'
-services:
-  snippet-box:
-    image: pawelmalak/snippet-box:latest
-    container_name: snippet-box
-    volumes:
-      - /path/to/host/data:/app/data
-    ports:
-      - 5000:5000
-    restart: unless-stopped
+## Build manually
+
+```sh
+npm run build
+node build/server.js
 ```
 
-### Without Docker
+`npm run build` produces `build/` (compiled backend) and `public/` (Vite client output served by Express).
 
-Follow instructions from wiki - [Installation without Docker](https://github.com/pawelmalak/snippet-box/wiki/Installation-without-Docker)
+## Behind a reverse proxy
 
-## Functionality
+If you front the app with nginx/Caddy/Traefik over HTTPS:
 
-- Search
-  - Search your snippets with built-in tags and language filters
-- Pinned snippets
-  - Pin your favorite / important snippets to home screen for easy and quick access
+```env
+TRUST_PROXY=1
+OIDC_REDIRECT_URI=https://snippets.example.com/auth/callback
+```
 
-![Homescreen screenshot](./.github/img/home.png)
+The session cookie is automatically marked `Secure` when both flags are set.
 
-- Snippet library
-  - Manage your snippets through snippet library
-  - Easily filter and access your code using tags
+## What's in this fork vs upstream
 
-![Snippet library screenshot](./.github/img/snippets.png)
+- Added OIDC login (PKCE + state + nonce), session-cookie auth, allow-list, logout
+- Upgraded everything: Express 4→5, React 17→19, CRA→Vite, react-router 5→7, react-markdown 7→9, node-sass→Dart Sass, umzug 2→3, axios 0→1
+- Replaced unmaintained Dockerfile, dropped Dockerfile.arm (base image is multi-arch)
+- New `.env` driven config (no more `src/config/.env`)
 
-- Snippet
-  - View your code, snippet details and documentation
-  - Built-in syntax highlighting
-  - Easily perform snippet actions like edit, pin or delete from a single place
+## License
 
-![Snippet screenshot](./.github/img/snippet.png)
-
-- Editor
-  - Create and edit your snippets from simple and easy to use editor
-
-![Editor screenshot](./.github/img/editor.png)
-
-## Usage
-
-### Search functionality
-
-Visit wiki for search functionality and available filters reference: [Search functionality](https://github.com/pawelmalak/snippet-box/wiki/Search-functionality)
+MIT — see [LICENCE.md](./LICENCE.md).

@@ -15,10 +15,8 @@ export const PageHeader = <T,>(props: Props<T>): JSX.Element => {
       {prevDest && (
         <h6>
           <Link
-            to={{
-              pathname: prevDest,
-              state: prevState
-            }}
+            to={prevDest}
+            state={prevState}
             className='text-decoration-none text-light'
           >
             &lt;- Go back
